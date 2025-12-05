@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace clinical.APIs.Models.DTOs
+namespace clinical.APIs.DTOs
 {
     public class NurseRegisterRequest
     {

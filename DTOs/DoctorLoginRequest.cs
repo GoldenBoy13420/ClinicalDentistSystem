@@ -1,8 +1,8 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace clinical.APIs.Models.DTOs
+namespace clinical.APIs.DTOs
 {
-    public class NurseLoginRequest
+    public class DoctorLoginRequest
     {
         [Required]
         [EmailAddress]
