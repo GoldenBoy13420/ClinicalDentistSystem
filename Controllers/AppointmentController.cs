@@ -1,4 +1,5 @@
 ﻿using clinical.APIs.Data;
+using clinical.APIs.DTOs;
 using clinical.APIs.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -57,11 +58,11 @@ namespace clinical.APIs.Controllers
 
         // POST: /Appointment
         [HttpPost]
-        public async Task<IActionResult> CreateAppointment([FromBody] Appointment appointment)
+        public async Task<IActionResult> CreateAppointment([FromBody] AppointmentCreateRequest request)
         {
-            if (appointment == null)
+            if (request == null)
             {
-                return BadRequest(new { error = "Appointment data is required.", hint = "Make sure you're sending a valid JSON body with appointment information." });
+                return BadRequest(new { error = "Appointment data is required."});
             }
 
             if (!ModelState.IsValid)
@@ -75,32 +76,47 @@ namespace clinical.APIs.Controllers
                 {
                     error = "Validation failed",
                     details = errors,
-                    hint = "Required fields: Date (format: YYYY-MM-DD), Time (format: HH:mm:ss), Ref_Num, Type, Patient_ID, Doctor_ID, Nurse_ID"
+                    hint = "Required fields: Date (format: YYYY-MM-DD), Time (format: HH:mm:ss), Type, Patient_ID, Doctor_ID, Nurse_ID"
                 });
             }
 
             try
             {
                 // Validate that Patient exists
-                var patientExists = await _context.Patients.AnyAsync(p => p.Patient_ID == appointment.Patient_ID);
+                var patientExists = await _context.Patients.AnyAsync(p => p.Patient_ID == request.Patient_ID);
                 if (!patientExists)
                 {
-                    return BadRequest(new { error = "Invalid Patient_ID. Patient does not exist.", patient_ID = appointment.Patient_ID });
+                    return BadRequest(new { error = "Invalid Patient_ID. Patient does not exist.", patient_ID = request.Patient_ID });
                 }
 
                 // Validate that Doctor exists
-                var doctorExists = await _context.Doctors.AnyAsync(d => d.ID == appointment.Doctor_ID);
+                var doctorExists = await _context.Doctors.AnyAsync(d => d.ID == request.Doctor_ID);
                 if (!doctorExists)
                 {
-                    return BadRequest(new { error = "Invalid Doctor_ID. Doctor does not exist.", doctor_ID = appointment.Doctor_ID });
+                    return BadRequest(new { error = "Invalid Doctor_ID. Doctor does not exist.", doctor_ID = request.Doctor_ID });
                 }
 
                 // Validate that Nurse exists
-                var nurseExists = await _context.Nurses.AnyAsync(n => n.NURSE_ID == appointment.Nurse_ID);
+                var nurseExists = await _context.Nurses.AnyAsync(n => n.NURSE_ID == request.Nurse_ID);
                 if (!nurseExists)
                 {
-                    return BadRequest(new { error = "Invalid Nurse_ID. Nurse does not exist.", nurse_ID = appointment.Nurse_ID });
+                    return BadRequest(new { error = "Invalid Nurse_ID. Nurse does not exist.", nurse_ID = request.Nurse_ID });
                 }
+
+                // Generate reference number automatically
+                var refNum = await GenerateReferenceNumber();
+
+                // Create appointment from request DTO
+                var appointment = new Appointment
+                {
+                    Date = request.Date,
+                    Time = request.Time,
+                    Ref_Num = refNum,
+                    Type = request.Type,
+                    Patient_ID = request.Patient_ID,
+                    Doctor_ID = request.Doctor_ID,
+                    Nurse_ID = request.Nurse_ID
+                };
 
                 _context.Appointments.Add(appointment);
                 await _context.SaveChangesAsync();
@@ -112,6 +128,14 @@ namespace clinical.APIs.Controllers
                 var innerMessage = ex.InnerException?.Message ?? ex.Message;
                 return StatusCode(500, new { error = "Internal server error", message = innerMessage });
             }
+        }
+
+        // Helper method to generate reference number
+        private async Task<string> GenerateReferenceNumber()
+        {
+            var year = DateTime.Now.Year;
+            var count = await _context.Appointments.CountAsync() + 1;
+            return $"APT-{year}-{count:D3}";
         }
 
         // PUT: /Appointment/{id}
