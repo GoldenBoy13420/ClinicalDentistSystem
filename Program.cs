@@ -34,6 +34,9 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // Add JWT Service
 builder.Services.AddScoped<IJwtService, JwtService>();
 
+// Add Mapping Services
+builder.Services.AddScoped<IAppointmentMappingService, AppointmentMappingService>();
+
 // Configure JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 var secretKey = jwtSettings["SecretKey"];
