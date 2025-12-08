@@ -36,6 +36,8 @@ builder.Services.AddScoped<IJwtService, JwtService>();
 
 // Add Mapping Services
 builder.Services.AddScoped<IAppointmentMappingService, AppointmentMappingService>();
+builder.Services.AddScoped<IStockTransactionMappingService, StockTransactionMappingService>();
+builder.Services.AddScoped<IEHRMappingService, EHRMappingService>();
 
 // Configure JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
