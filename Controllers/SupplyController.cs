@@ -1,5 +1,6 @@
 using clinical.APIs.Data;
 using clinical.APIs.Models;
+using clinical.APIs.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -25,6 +26,7 @@ namespace clinical.APIs.Controllers
         {
             var supplies = await _context.Supplies
                 .Include(s => s.StockTransactions)
+                    .ThenInclude(st => st.Doctor)
                 .ToListAsync();
 
             if (supplies == null || supplies.Count == 0)
@@ -32,7 +34,26 @@ namespace clinical.APIs.Controllers
                 return NotFound(new { message = "No supplies found." });
             }
 
-            return Ok(supplies);
+            var response = supplies.Select(s => new SupplyResponse
+            {
+                Supply_ID = s.Supply_ID,
+                Supply_Name = s.Supply_Name,
+                Category = s.Category,
+                Unit = s.Unit,
+                Quantity = s.Quantity,
+                Description = s.Description,
+                StockTransactions = s.StockTransactions?.Select(st => new StockTransactionBasicInfo
+                {
+                    T_ID = st.T_ID,
+                    Date = st.Date,
+                    Time = st.Time,
+                    Quantity = st.Quantity,
+                    Doctor_ID = st.Doctor_ID,
+                    DoctorName = st.Doctor?.Name
+                }).ToList()
+            }).ToList();
+
+            return Ok(response);
         }
 
         // GET: /Supply/{id}
@@ -41,6 +62,7 @@ namespace clinical.APIs.Controllers
         {
             var supply = await _context.Supplies
                 .Include(s => s.StockTransactions)
+                    .ThenInclude(st => st.Doctor)
                 .FirstOrDefaultAsync(s => s.Supply_ID == Supply_ID);
 
             if (supply == null)
@@ -48,7 +70,26 @@ namespace clinical.APIs.Controllers
                 return NotFound(new { error = "Supply not found.", supply_ID = Supply_ID });
             }
 
-            return Ok(supply);
+            var response = new SupplyResponse
+            {
+                Supply_ID = supply.Supply_ID,
+                Supply_Name = supply.Supply_Name,
+                Category = supply.Category,
+                Unit = supply.Unit,
+                Quantity = supply.Quantity,
+                Description = supply.Description,
+                StockTransactions = supply.StockTransactions?.Select(st => new StockTransactionBasicInfo
+                {
+                    T_ID = st.T_ID,
+                    Date = st.Date,
+                    Time = st.Time,
+                    Quantity = st.Quantity,
+                    Doctor_ID = st.Doctor_ID,
+                    DoctorName = st.Doctor?.Name
+                }).ToList()
+            };
+
+            return Ok(response);
         }
 
         // GET: /Supply/Category/{category}
@@ -57,6 +98,7 @@ namespace clinical.APIs.Controllers
         {
             var supplies = await _context.Supplies
                 .Include(s => s.StockTransactions)
+                    .ThenInclude(st => st.Doctor)
                 .Where(s => s.Category.ToLower() == category.ToLower())
                 .ToListAsync();
 
@@ -65,7 +107,26 @@ namespace clinical.APIs.Controllers
                 return NotFound(new { message = "No supplies found for this category.", category = category });
             }
 
-            return Ok(supplies);
+            var response = supplies.Select(s => new SupplyResponse
+            {
+                Supply_ID = s.Supply_ID,
+                Supply_Name = s.Supply_Name,
+                Category = s.Category,
+                Unit = s.Unit,
+                Quantity = s.Quantity,
+                Description = s.Description,
+                StockTransactions = s.StockTransactions?.Select(st => new StockTransactionBasicInfo
+                {
+                    T_ID = st.T_ID,
+                    Date = st.Date,
+                    Time = st.Time,
+                    Quantity = st.Quantity,
+                    Doctor_ID = st.Doctor_ID,
+                    DoctorName = st.Doctor?.Name
+                }).ToList()
+            }).ToList();
+
+            return Ok(response);
         }
 
         // GET: /Supply/LowStock/{threshold}
@@ -81,7 +142,17 @@ namespace clinical.APIs.Controllers
                 return NotFound(new { message = "No low stock supplies found.", threshold = threshold });
             }
 
-            return Ok(supplies);
+            var response = supplies.Select(s => new SupplyBasicInfo
+            {
+                Supply_ID = s.Supply_ID,
+                Supply_Name = s.Supply_Name,
+                Category = s.Category,
+                Unit = s.Unit,
+                Quantity = s.Quantity,
+                Description = s.Description
+            }).ToList();
+
+            return Ok(response);
         }
 
         // POST: /Supply
@@ -113,7 +184,17 @@ namespace clinical.APIs.Controllers
                 _context.Supplies.Add(supply);
                 await _context.SaveChangesAsync();
 
-                return CreatedAtAction(nameof(GetSupplyById), new { Supply_ID = supply.Supply_ID }, supply);
+                var response = new SupplyBasicInfo
+                {
+                    Supply_ID = supply.Supply_ID,
+                    Supply_Name = supply.Supply_Name,
+                    Category = supply.Category,
+                    Unit = supply.Unit,
+                    Quantity = supply.Quantity,
+                    Description = supply.Description
+                };
+
+                return CreatedAtAction(nameof(GetSupplyById), new { Supply_ID = supply.Supply_ID }, response);
             }
             catch (Exception ex)
             {
@@ -164,11 +245,22 @@ namespace clinical.APIs.Controllers
                 existingSupply.Category = supply.Category;
                 existingSupply.Unit = supply.Unit;
                 existingSupply.Quantity = supply.Quantity;
+                existingSupply.Description = supply.Description;
 
                 _context.Supplies.Update(existingSupply);
                 await _context.SaveChangesAsync();
 
-                return Ok(new { message = "Supply updated successfully.", supply = existingSupply });
+                var response = new SupplyBasicInfo
+                {
+                    Supply_ID = existingSupply.Supply_ID,
+                    Supply_Name = existingSupply.Supply_Name,
+                    Category = existingSupply.Category,
+                    Unit = existingSupply.Unit,
+                    Quantity = existingSupply.Quantity,
+                    Description = existingSupply.Description
+                };
+
+                return Ok(new { message = "Supply updated successfully.", supply = response });
             }
             catch (DbUpdateConcurrencyException)
             {
