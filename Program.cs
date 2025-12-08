@@ -31,6 +31,18 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     }
 });
 
+// Add CORS Configuration
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowNextJs", policy =>
+    {
+        policy.WithOrigins("http://localhost:3000", "https://localhost:3000")
+              .AllowAnyMethod()
+              .AllowAnyHeader()
+              .AllowCredentials();
+    });
+});
+
 // Add JWT Service
 builder.Services.AddScoped<IJwtService, JwtService>();
 
@@ -152,6 +164,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseCors("AllowNextJs");
 
 app.UseAuthentication();
 app.UseAuthorization();
