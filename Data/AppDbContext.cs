@@ -14,6 +14,7 @@ namespace clinical.APIs.Data
         public DbSet<Nurse> Nurses { get; set; }
         public DbSet<Appointment> Appointments { get; set; }
         public DbSet<EHR> EHRs { get; set; }
+        public DbSet<EHRChangeLog> EHRChangeLogs { get; set; }
         public DbSet<Supply> Supplies { get; set; }
         public DbSet<Stock_Transaction> StockTransactions { get; set; }
 
@@ -58,6 +59,25 @@ namespace clinical.APIs.Data
                 .HasOne(st => st.Doctor)
                 .WithMany()
                 .HasForeignKey(st => st.Doctor_ID)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // EHR Change Log relationships
+            modelBuilder.Entity<EHRChangeLog>()
+                .HasOne(cl => cl.EHR)
+                .WithMany(e => e.ChangeLogs)
+                .HasForeignKey(cl => cl.EHR_ID)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<EHRChangeLog>()
+                .HasOne(cl => cl.Doctor)
+                .WithMany()
+                .HasForeignKey(cl => cl.DoctorId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<EHRChangeLog>()
+                .HasOne(cl => cl.Appointment)
+                .WithMany()
+                .HasForeignKey(cl => cl.Appointment_ID)
                 .OnDelete(DeleteBehavior.Restrict);
         }
     }

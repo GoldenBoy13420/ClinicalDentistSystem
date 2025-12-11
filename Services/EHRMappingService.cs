@@ -13,11 +13,21 @@ namespace clinical.APIs.Services
             return new EHRResponse
             {
                 EHR_ID = ehr.EHR_ID,
-                Medications = ehr.Medications,
+                // Medical Information
                 Allergies = ehr.Allergies,
+                MedicalAlerts = ehr.MedicalAlerts,
+                Medications = ehr.Medications,
+                // Dental Information
+                Diagnosis = ehr.Diagnosis,
+                XRayFindings = ehr.XRayFindings,
+                ClinicalNotes = ehr.ClinicalNotes,
+                Recommendations = ehr.Recommendations,
+                // Legacy fields
                 History = ehr.History,
                 Treatments = ehr.Treatments,
+                // Metadata
                 Last_Updated = ehr.Last_Updated,
+                UpdatedBy = ehr.UpdatedBy,
                 Patient_ID = ehr.Patient_ID,
                 AppointmentId = ehr.AppointmentId,
                 Patient = ehr.Patient != null ? new PatientBasicInfo

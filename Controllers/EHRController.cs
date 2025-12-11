@@ -5,6 +5,8 @@ using clinical.APIs.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 
 namespace clinical.APIs.Controllers
 {
@@ -15,11 +17,27 @@ namespace clinical.APIs.Controllers
     {
         private readonly AppDbContext _context;
         private readonly IEHRMappingService _mappingService;
+        private readonly IEHRChangeLogService _changeLogService;
 
-        public EHRController(AppDbContext context, IEHRMappingService mappingService)
+        public EHRController(AppDbContext context, IEHRMappingService mappingService, IEHRChangeLogService changeLogService)
         {
             _context = context;
             _mappingService = mappingService;
+            _changeLogService = changeLogService;
+        }
+
+        // Helper method to get doctor info from JWT token
+        private (int DoctorId, string DoctorName) GetDoctorFromToken()
+        {
+            var userId = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
+            var userName = User.FindFirst(JwtRegisteredClaimNames.Name)?.Value;
+            
+            if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(userName))
+            {
+                throw new UnauthorizedAccessException("Unable to retrieve doctor information from token");
+            }
+
+            return (int.Parse(userId), userName);
         }
 
         [HttpGet]
@@ -75,6 +93,37 @@ namespace clinical.APIs.Controllers
             return Ok(response);
         }
 
+        // Get change history for a specific EHR
+        [HttpGet("{EHR_ID}/history")]
+        public async Task<IActionResult> GetEHRChangeHistory(int EHR_ID)
+        {
+            var ehr = await _context.EHRs.FindAsync(EHR_ID);
+            if (ehr == null)
+            {
+                return NotFound(new { error = "EHR not found.", ehr_id = EHR_ID });
+            }
+
+            var changeLogs = await _context.EHRChangeLogs
+                .Where(cl => cl.EHR_ID == EHR_ID)
+                .OrderByDescending(cl => cl.ChangedAt)
+                .Select(cl => new EHRChangeLogResponse
+                {
+                    ChangeLog_ID = cl.ChangeLog_ID,
+                    FieldName = cl.FieldName,
+                    OldValue = cl.OldValue,
+                    NewValue = cl.NewValue,
+                    ChangeType = cl.ChangeType,
+                    ChangedAt = cl.ChangedAt,
+                    ChangedByDoctorId = cl.ChangedByDoctorId,
+                    ChangedByDoctorName = cl.ChangedByDoctorName,
+                    AppointmentId = cl.AppointmentId,
+                    EHR_ID = cl.EHR_ID
+                })
+                .ToListAsync();
+
+            return Ok(changeLogs);
+        }
+
         [Authorize(Policy = "DoctorOnly")]
         [HttpPost]
         public async Task<IActionResult> CreateEHR([FromBody] EHRCreateRequest request)
@@ -101,6 +150,9 @@ namespace clinical.APIs.Controllers
 
             try
             {
+                // Get doctor info from token
+                var (doctorId, doctorName) = GetDoctorFromToken();
+
                 // Verify that the patient exists
                 var patient = await _context.Patients.FindAsync(request.Patient_ID);
                 if (patient == null)
@@ -117,17 +169,30 @@ namespace clinical.APIs.Controllers
 
                 var ehr = new EHR
                 {
-                    Medications = request.Medications,
+                    // Medical Information
                     Allergies = request.Allergies,
+                    MedicalAlerts = request.MedicalAlerts,
+                    Medications = request.Medications,
+                    // Dental Information
+                    Diagnosis = request.Diagnosis,
+                    XRayFindings = request.XRayFindings,
+                    ClinicalNotes = request.ClinicalNotes,
+                    Recommendations = request.Recommendations,
+                    // Legacy fields
                     History = request.History,
                     Treatments = request.Treatments,
+                    // Metadata
                     Patient_ID = request.Patient_ID,
                     AppointmentId = request.AppointmentId,
-                    Last_Updated = DateTime.Now
+                    Last_Updated = DateTime.Now,
+                    UpdatedBy = doctorName
                 };
 
                 _context.EHRs.Add(ehr);
                 await _context.SaveChangesAsync();
+
+                // Log the creation
+                await _changeLogService.LogCreationAsync(ehr, doctorId, doctorName, request.AppointmentId);
 
                 // Load related entities for response
                 var createdEHR = await _context.EHRs
@@ -137,6 +202,10 @@ namespace clinical.APIs.Controllers
 
                 var response = _mappingService.MapToResponse(createdEHR);
                 return CreatedAtAction(nameof(GetEHRById), new { EHR_ID = ehr.EHR_ID }, response);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(new { error = ex.Message });
             }
             catch (Exception ex)
             {
@@ -174,12 +243,30 @@ namespace clinical.APIs.Controllers
 
             try
             {
-                // Check if EHR exists
-                var existingEHR = await _context.EHRs.FindAsync(EHR_ID);
+                // Get doctor info from token
+                var (doctorId, doctorName) = GetDoctorFromToken();
+
+                // Check if EHR exists - create a copy of the old state for change tracking
+                var existingEHR = await _context.EHRs.AsNoTracking().FirstOrDefaultAsync(e => e.EHR_ID == EHR_ID);
                 if (existingEHR == null)
                 {
                     return NotFound(new { error = "EHR not found.", ehr_id = EHR_ID });
                 }
+
+                // Create a deep copy for change tracking
+                var oldEHR = new EHR
+                {
+                    EHR_ID = existingEHR.EHR_ID,
+                    Allergies = existingEHR.Allergies,
+                    MedicalAlerts = existingEHR.MedicalAlerts,
+                    Medications = existingEHR.Medications,
+                    Diagnosis = existingEHR.Diagnosis,
+                    XRayFindings = existingEHR.XRayFindings,
+                    ClinicalNotes = existingEHR.ClinicalNotes,
+                    Recommendations = existingEHR.Recommendations,
+                    History = existingEHR.History,
+                    Treatments = existingEHR.Treatments
+                };
 
                 // Verify that the patient exists if Patient_ID is being changed
                 if (existingEHR.Patient_ID != request.Patient_ID)
@@ -201,16 +288,43 @@ namespace clinical.APIs.Controllers
                     }
                 }
 
-                // Update EHR properties
-                existingEHR.Medications = request.Medications;
-                existingEHR.Allergies = request.Allergies;
-                existingEHR.History = request.History;
-                existingEHR.Treatments = request.Treatments;
-                existingEHR.Patient_ID = request.Patient_ID;
-                existingEHR.AppointmentId = request.AppointmentId;
-                existingEHR.Last_Updated = DateTime.Now;
+                // Now get the tracked entity for update
+                var trackedEHR = await _context.EHRs.FindAsync(EHR_ID);
 
-                _context.EHRs.Update(existingEHR);
+                // Create new EHR object with updated values
+                var newEHR = new EHR
+                {
+                    EHR_ID = EHR_ID,
+                    Allergies = request.Allergies,
+                    MedicalAlerts = request.MedicalAlerts,
+                    Medications = request.Medications,
+                    Diagnosis = request.Diagnosis,
+                    XRayFindings = request.XRayFindings,
+                    ClinicalNotes = request.ClinicalNotes,
+                    Recommendations = request.Recommendations,
+                    History = request.History,
+                    Treatments = request.Treatments
+                };
+
+                // Log changes before updating
+                await _changeLogService.LogChangesAsync(oldEHR, newEHR, doctorId, doctorName, request.AppointmentId);
+
+                // Update EHR properties
+                trackedEHR.Allergies = request.Allergies;
+                trackedEHR.MedicalAlerts = request.MedicalAlerts;
+                trackedEHR.Medications = request.Medications;
+                trackedEHR.Diagnosis = request.Diagnosis;
+                trackedEHR.XRayFindings = request.XRayFindings;
+                trackedEHR.ClinicalNotes = request.ClinicalNotes;
+                trackedEHR.Recommendations = request.Recommendations;
+                trackedEHR.History = request.History;
+                trackedEHR.Treatments = request.Treatments;
+                trackedEHR.Patient_ID = request.Patient_ID;
+                trackedEHR.AppointmentId = request.AppointmentId;
+                trackedEHR.Last_Updated = DateTime.Now;
+                trackedEHR.UpdatedBy = doctorName;
+
+                _context.EHRs.Update(trackedEHR);
                 await _context.SaveChangesAsync();
 
                 // Load related entities for response
@@ -221,6 +335,10 @@ namespace clinical.APIs.Controllers
 
                 var response = _mappingService.MapToResponse(updatedEHR);
                 return Ok(new { message = "EHR updated successfully.", ehr = response });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(new { error = ex.Message });
             }
             catch (DbUpdateConcurrencyException)
             {
