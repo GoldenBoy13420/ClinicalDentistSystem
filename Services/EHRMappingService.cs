@@ -16,17 +16,16 @@ namespace clinical.APIs.Services
                 // Medical Information
                 Allergies = ehr.Allergies,
                 MedicalAlerts = ehr.MedicalAlerts,
-                Medications = ehr.Medications,
                 // Dental Information
                 Diagnosis = ehr.Diagnosis,
                 XRayFindings = ehr.XRayFindings,
+                PeriodontalStatus = ehr.PeriodontalStatus,
                 ClinicalNotes = ehr.ClinicalNotes,
                 Recommendations = ehr.Recommendations,
-                // Legacy fields
                 History = ehr.History,
                 Treatments = ehr.Treatments,
                 // Metadata
-                Last_Updated = ehr.Last_Updated,
+                UpdatedAt = ehr.UpdatedAt,
                 UpdatedBy = ehr.UpdatedBy,
                 Patient_ID = ehr.Patient_ID,
                 AppointmentId = ehr.AppointmentId,
@@ -46,7 +45,64 @@ namespace clinical.APIs.Services
                     Time = ehr.Appointment.Time,
                     Ref_Num = ehr.Appointment.Ref_Num,
                     Type = ehr.Appointment.Type
-                } : null
+                } : null,
+                // Normalized collections
+                Medications = ehr.Medications?.Select(m => new MedicationRecordResponse
+                {
+                    Medication_ID = m.Medication_ID,
+                    Name = m.Name,
+                    Dosage = m.Dosage,
+                    Frequency = m.Frequency,
+                    Route = m.Route,
+                    StartDate = m.StartDate,
+                    EndDate = m.EndDate,
+                    Notes = m.Notes
+                }).ToList(),
+                Procedures = ehr.Procedures?.Select(p => new ProcedureRecordResponse
+                {
+                    Procedure_ID = p.Procedure_ID,
+                    Code = p.Code,
+                    Description = p.Description,
+                    PerformedAt = p.PerformedAt,
+                    ToothNumber = p.ToothNumber,
+                    Status = p.Status,
+                    Notes = p.Notes
+                }).ToList(),
+                Teeth = ehr.Teeth?.Select(t => new ToothRecordResponse
+                {
+                    ToothRecord_ID = t.ToothRecord_ID,
+                    ToothNumber = t.ToothNumber,
+                    Condition = t.Condition,
+                    TreatmentPlanned = t.TreatmentPlanned,
+                    TreatmentCompleted = t.TreatmentCompleted,
+                    Surfaces = t.Surfaces,
+                    Notes = t.Notes,
+                    LastUpdated = t.LastUpdated
+                }).ToList(),
+                XRays = ehr.XRays?.Select(x => new XRayRecordResponse
+                {
+                    XRay_ID = x.XRay_ID,
+                    Type = x.Type,
+                    Findings = x.Findings,
+                    ImagePath = x.ImagePath,
+                    HasImage = x.ImageData != null && x.ImageData.Length > 0,
+                    TakenAt = x.TakenAt,
+                    TakenBy = x.TakenBy,
+                    Notes = x.Notes
+                }).ToList(),
+                ChangeLogs = ehr.ChangeLogs?.OrderByDescending(cl => cl.ChangedAt).Select(cl => new EHRChangeLogResponse
+                {
+                    ChangeLog_ID = cl.ChangeLog_ID,
+                    FieldName = cl.FieldName,
+                    OldValue = cl.OldValue,
+                    NewValue = cl.NewValue,
+                    ChangeType = cl.ChangeType,
+                    ChangedAt = cl.ChangedAt,
+                    ChangedByDoctorId = cl.ChangedByDoctorId,
+                    ChangedByDoctorName = cl.ChangedByDoctorName,
+                    AppointmentId = cl.AppointmentId,
+                    EHR_ID = cl.EHR_ID
+                }).ToList()
             };
         }
 

@@ -11,12 +11,12 @@ namespace clinical.APIs.Models
 
         // ---- Medical Information ----
         public string? Allergies { get; set; }
-        public string? MedicalAlerts { get; set; }     
-        public string? Medications { get; set; }
+        public string? MedicalAlerts { get; set; }     // Diabetes, Hypertension
 
         // ---- Dental Information ----
-        public string? Diagnosis { get; set; }         
-        public string? XRayFindings { get; set; }      
+        public string? Diagnosis { get; set; }
+        public string? XRayFindings { get; set; }      // General X-ray findings (legacy)
+        public string? PeriodontalStatus { get; set; }
         public string? ClinicalNotes { get; set; }
         public string? Recommendations { get; set; }
 
@@ -25,7 +25,7 @@ namespace clinical.APIs.Models
         public string? Treatments { get; set; }
 
         // ---- Metadata ----
-        public DateTime Last_Updated { get; set; }
+        public DateTime UpdatedAt { get; set; }
         public string? UpdatedBy { get; set; }         // Doctor name who last updated
 
         // ---- Foreign Keys ----
@@ -39,5 +39,9 @@ namespace clinical.APIs.Models
 
         // ---- Navigation Collections ----
         public List<EHRChangeLog>? ChangeLogs { get; set; }
+        public List<MedicationRecord>? Medications { get; set; }
+        public List<ProcedureRecord>? Procedures { get; set; }
+        public List<ToothRecord>? Teeth { get; set; }
+        public List<XRayRecord>? XRays { get; set; }
     }
 }

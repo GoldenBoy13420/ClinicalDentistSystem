@@ -10,11 +10,11 @@ namespace clinical.APIs.DTOs
         // Medical Information
         public string? Allergies { get; set; }
         public string? MedicalAlerts { get; set; }
-        public string? Medications { get; set; }
 
         // Dental Information
         public string? Diagnosis { get; set; }
         public string? XRayFindings { get; set; }
+        public string? PeriodontalStatus { get; set; }
         public string? ClinicalNotes { get; set; }
         public string? Recommendations { get; set; }
 
@@ -27,5 +27,11 @@ namespace clinical.APIs.DTOs
 
         [Required(ErrorMessage = "AppointmentId is required")]
         public int AppointmentId { get; set; }
+
+        // Optional collections for normalized data
+        public List<MedicationRecordDto>? Medications { get; set; }
+        public List<ProcedureRecordDto>? Procedures { get; set; }
+        public List<ToothRecordDto>? Teeth { get; set; }
+        public List<XRayRecordDto>? XRays { get; set; }
     }
 }

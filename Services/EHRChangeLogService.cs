@@ -23,9 +23,9 @@ namespace clinical.APIs.Services
             {
                 { nameof(ehr.Allergies), ehr.Allergies },
                 { nameof(ehr.MedicalAlerts), ehr.MedicalAlerts },
-                { nameof(ehr.Medications), ehr.Medications },
                 { nameof(ehr.Diagnosis), ehr.Diagnosis },
                 { nameof(ehr.XRayFindings), ehr.XRayFindings },
+                { nameof(ehr.PeriodontalStatus), ehr.PeriodontalStatus },
                 { nameof(ehr.ClinicalNotes), ehr.ClinicalNotes },
                 { nameof(ehr.Recommendations), ehr.Recommendations },
                 { nameof(ehr.History), ehr.History },
@@ -68,9 +68,9 @@ namespace clinical.APIs.Services
             // Compare and log changes for each field
             LogFieldChange(changeLogs, nameof(oldEhr.Allergies), oldEhr.Allergies, newEhr.Allergies, now, doctorId, doctorName, appointmentId, newEhr.EHR_ID);
             LogFieldChange(changeLogs, nameof(oldEhr.MedicalAlerts), oldEhr.MedicalAlerts, newEhr.MedicalAlerts, now, doctorId, doctorName, appointmentId, newEhr.EHR_ID);
-            LogFieldChange(changeLogs, nameof(oldEhr.Medications), oldEhr.Medications, newEhr.Medications, now, doctorId, doctorName, appointmentId, newEhr.EHR_ID);
             LogFieldChange(changeLogs, nameof(oldEhr.Diagnosis), oldEhr.Diagnosis, newEhr.Diagnosis, now, doctorId, doctorName, appointmentId, newEhr.EHR_ID);
             LogFieldChange(changeLogs, nameof(oldEhr.XRayFindings), oldEhr.XRayFindings, newEhr.XRayFindings, now, doctorId, doctorName, appointmentId, newEhr.EHR_ID);
+            LogFieldChange(changeLogs, nameof(oldEhr.PeriodontalStatus), oldEhr.PeriodontalStatus, newEhr.PeriodontalStatus, now, doctorId, doctorName, appointmentId, newEhr.EHR_ID);
             LogFieldChange(changeLogs, nameof(oldEhr.ClinicalNotes), oldEhr.ClinicalNotes, newEhr.ClinicalNotes, now, doctorId, doctorName, appointmentId, newEhr.EHR_ID);
             LogFieldChange(changeLogs, nameof(oldEhr.Recommendations), oldEhr.Recommendations, newEhr.Recommendations, now, doctorId, doctorName, appointmentId, newEhr.EHR_ID);
             LogFieldChange(changeLogs, nameof(oldEhr.History), oldEhr.History, newEhr.History, now, doctorId, doctorName, appointmentId, newEhr.EHR_ID);
