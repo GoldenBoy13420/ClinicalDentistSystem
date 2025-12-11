@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using clinical.APIs.Data;
 
@@ -11,9 +12,11 @@ using clinical.APIs.Data;
 namespace clinical.APIs.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251211125635_EnhanceEHRWithChangeTracking")]
+    partial class EnhanceEHRWithChangeTracking
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -116,23 +119,23 @@ namespace clinical.APIs.Migrations
                     b.Property<string>("History")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<DateTime>("Last_Updated")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("MedicalAlerts")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Medications")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("Patient_ID")
                         .HasColumnType("int");
-
-                    b.Property<string>("PeriodontalStatus")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Recommendations")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Treatments")
                         .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
 
                     b.Property<string>("UpdatedBy")
                         .HasColumnType("nvarchar(max)");
@@ -205,46 +208,6 @@ namespace clinical.APIs.Migrations
                     b.ToTable("EHRChangeLogs");
                 });
 
-            modelBuilder.Entity("clinical.APIs.Models.MedicationRecord", b =>
-                {
-                    b.Property<int>("Medication_ID")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Medication_ID"));
-
-                    b.Property<string>("Dosage")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("EHR_ID")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("EndDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Frequency")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Notes")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Route")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime?>("StartDate")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Medication_ID");
-
-                    b.HasIndex("EHR_ID");
-
-                    b.ToTable("MedicationRecords");
-                });
-
             modelBuilder.Entity("clinical.APIs.Models.Nurse", b =>
                 {
                     b.Property<int>("NURSE_ID")
@@ -314,44 +277,6 @@ namespace clinical.APIs.Migrations
                     b.ToTable("Patients");
                 });
 
-            modelBuilder.Entity("clinical.APIs.Models.ProcedureRecord", b =>
-                {
-                    b.Property<int>("Procedure_ID")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Procedure_ID"));
-
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("EHR_ID")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Notes")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("PerformedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Status")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("ToothNumber")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Procedure_ID");
-
-                    b.HasIndex("EHR_ID");
-
-                    b.ToTable("ProcedureRecords");
-                });
-
             modelBuilder.Entity("clinical.APIs.Models.Stock_Transaction", b =>
                 {
                     b.Property<int>("T_ID")
@@ -418,85 +343,6 @@ namespace clinical.APIs.Migrations
                     b.HasKey("Supply_ID");
 
                     b.ToTable("Supplies");
-                });
-
-            modelBuilder.Entity("clinical.APIs.Models.ToothRecord", b =>
-                {
-                    b.Property<int>("ToothRecord_ID")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ToothRecord_ID"));
-
-                    b.Property<string>("Condition")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("EHR_ID")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("LastUpdated")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Notes")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Surfaces")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("ToothNumber")
-                        .HasColumnType("int");
-
-                    b.Property<string>("TreatmentCompleted")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("TreatmentPlanned")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("ToothRecord_ID");
-
-                    b.HasIndex("EHR_ID");
-
-                    b.ToTable("ToothRecords");
-                });
-
-            modelBuilder.Entity("clinical.APIs.Models.XRayRecord", b =>
-                {
-                    b.Property<int>("XRay_ID")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("XRay_ID"));
-
-                    b.Property<int>("EHR_ID")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Findings")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<byte[]>("ImageData")
-                        .HasColumnType("varbinary(max)");
-
-                    b.Property<string>("ImagePath")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Notes")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("TakenAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("TakenBy")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Type")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("XRay_ID");
-
-                    b.HasIndex("EHR_ID");
-
-                    b.ToTable("XRayRecords");
                 });
 
             modelBuilder.Entity("clinical.APIs.Models.Appointment", b =>
@@ -572,28 +418,6 @@ namespace clinical.APIs.Migrations
                     b.Navigation("EHR");
                 });
 
-            modelBuilder.Entity("clinical.APIs.Models.MedicationRecord", b =>
-                {
-                    b.HasOne("clinical.APIs.Models.EHR", "EHR")
-                        .WithMany("Medications")
-                        .HasForeignKey("EHR_ID")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("EHR");
-                });
-
-            modelBuilder.Entity("clinical.APIs.Models.ProcedureRecord", b =>
-                {
-                    b.HasOne("clinical.APIs.Models.EHR", "EHR")
-                        .WithMany("Procedures")
-                        .HasForeignKey("EHR_ID")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("EHR");
-                });
-
             modelBuilder.Entity("clinical.APIs.Models.Stock_Transaction", b =>
                 {
                     b.HasOne("clinical.APIs.Models.Doctor", null)
@@ -617,28 +441,6 @@ namespace clinical.APIs.Migrations
                     b.Navigation("Supply");
                 });
 
-            modelBuilder.Entity("clinical.APIs.Models.ToothRecord", b =>
-                {
-                    b.HasOne("clinical.APIs.Models.EHR", "EHR")
-                        .WithMany("Teeth")
-                        .HasForeignKey("EHR_ID")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("EHR");
-                });
-
-            modelBuilder.Entity("clinical.APIs.Models.XRayRecord", b =>
-                {
-                    b.HasOne("clinical.APIs.Models.EHR", "EHR")
-                        .WithMany("XRays")
-                        .HasForeignKey("EHR_ID")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("EHR");
-                });
-
             modelBuilder.Entity("clinical.APIs.Models.Appointment", b =>
                 {
                     b.Navigation("EHR")
@@ -655,14 +457,6 @@ namespace clinical.APIs.Migrations
             modelBuilder.Entity("clinical.APIs.Models.EHR", b =>
                 {
                     b.Navigation("ChangeLogs");
-
-                    b.Navigation("Medications");
-
-                    b.Navigation("Procedures");
-
-                    b.Navigation("Teeth");
-
-                    b.Navigation("XRays");
                 });
 
             modelBuilder.Entity("clinical.APIs.Models.Nurse", b =>

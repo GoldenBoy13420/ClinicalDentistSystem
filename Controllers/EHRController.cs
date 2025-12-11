@@ -5,6 +5,8 @@ using clinical.APIs.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 
 namespace clinical.APIs.Controllers
 {
@@ -15,11 +17,27 @@ namespace clinical.APIs.Controllers
     {
         private readonly AppDbContext _context;
         private readonly IEHRMappingService _mappingService;
+        private readonly IEHRChangeLogService _changeLogService;
 
-        public EHRController(AppDbContext context, IEHRMappingService mappingService)
+        public EHRController(AppDbContext context, IEHRMappingService mappingService, IEHRChangeLogService changeLogService)
         {
             _context = context;
             _mappingService = mappingService;
+            _changeLogService = changeLogService;
+        }
+
+        // Helper method to get doctor info from JWT token
+        private (int DoctorId, string DoctorName) GetDoctorFromToken()
+        {
+            var userId = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
+            var userName = User.FindFirst(JwtRegisteredClaimNames.Name)?.Value;
+            
+            if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(userName))
+            {
+                throw new UnauthorizedAccessException("Unable to retrieve doctor information from token");
+            }
+
+            return (int.Parse(userId), userName);
         }
 
         [HttpGet]
@@ -29,6 +47,11 @@ namespace clinical.APIs.Controllers
             var ehrs = await _context.EHRs
                 .Include(e => e.Patient)
                 .Include(e => e.Appointment)
+                .Include(e => e.Medications)
+                .Include(e => e.Procedures)
+                .Include(e => e.Teeth)
+                .Include(e => e.XRays)
+                .Include(e => e.ChangeLogs)
                 .ToListAsync();
 
             if (ehrs == null || ehrs.Count == 0)
@@ -46,6 +69,11 @@ namespace clinical.APIs.Controllers
             var ehr = await _context.EHRs
                 .Include(e => e.Patient)
                 .Include(e => e.Appointment)
+                .Include(e => e.Medications)
+                .Include(e => e.Procedures)
+                .Include(e => e.Teeth)
+                .Include(e => e.XRays)
+                .Include(e => e.ChangeLogs)
                 .FirstOrDefaultAsync(e => e.EHR_ID == EHR_ID);
 
             if (ehr == null)
@@ -63,6 +91,11 @@ namespace clinical.APIs.Controllers
             var ehrs = await _context.EHRs
                 .Include(e => e.Patient)
                 .Include(e => e.Appointment)
+                .Include(e => e.Medications)
+                .Include(e => e.Procedures)
+                .Include(e => e.Teeth)
+                .Include(e => e.XRays)
+                .Include(e => e.ChangeLogs)
                 .Where(e => e.Patient_ID == Patient_ID)
                 .ToListAsync();
 
@@ -73,6 +106,37 @@ namespace clinical.APIs.Controllers
 
             var response = _mappingService.MapToResponseList(ehrs);
             return Ok(response);
+        }
+
+        // Get change history for a specific EHR
+        [HttpGet("{EHR_ID}/history")]
+        public async Task<IActionResult> GetEHRChangeHistory(int EHR_ID)
+        {
+            var ehr = await _context.EHRs.FindAsync(EHR_ID);
+            if (ehr == null)
+            {
+                return NotFound(new { error = "EHR not found.", ehr_id = EHR_ID });
+            }
+
+            var changeLogs = await _context.EHRChangeLogs
+                .Where(cl => cl.EHR_ID == EHR_ID)
+                .OrderByDescending(cl => cl.ChangedAt)
+                .Select(cl => new EHRChangeLogResponse
+                {
+                    ChangeLog_ID = cl.ChangeLog_ID,
+                    FieldName = cl.FieldName,
+                    OldValue = cl.OldValue,
+                    NewValue = cl.NewValue,
+                    ChangeType = cl.ChangeType,
+                    ChangedAt = cl.ChangedAt,
+                    ChangedByDoctorId = cl.ChangedByDoctorId,
+                    ChangedByDoctorName = cl.ChangedByDoctorName,
+                    AppointmentId = cl.AppointmentId,
+                    EHR_ID = cl.EHR_ID
+                })
+                .ToListAsync();
+
+            return Ok(changeLogs);
         }
 
         [Authorize(Policy = "DoctorOnly")]
@@ -101,6 +165,9 @@ namespace clinical.APIs.Controllers
 
             try
             {
+                // Get doctor info from token
+                var (doctorId, doctorName) = GetDoctorFromToken();
+
                 // Verify that the patient exists
                 var patient = await _context.Patients.FindAsync(request.Patient_ID);
                 if (patient == null)
@@ -117,26 +184,86 @@ namespace clinical.APIs.Controllers
 
                 var ehr = new EHR
                 {
-                    Medications = request.Medications,
+                    // Medical Information
                     Allergies = request.Allergies,
+                    MedicalAlerts = request.MedicalAlerts,
+                    // Dental Information
+                    Diagnosis = request.Diagnosis,
+                    XRayFindings = request.XRayFindings,
+                    PeriodontalStatus = request.PeriodontalStatus,
+                    ClinicalNotes = request.ClinicalNotes,
+                    Recommendations = request.Recommendations,
                     History = request.History,
                     Treatments = request.Treatments,
+                    // Metadata
                     Patient_ID = request.Patient_ID,
                     AppointmentId = request.AppointmentId,
-                    Last_Updated = DateTime.Now
+                    UpdatedAt = DateTime.Now,
+                    UpdatedBy = doctorName,
+                
+                    Medications = request.Medications?.Select(m => new MedicationRecord
+                    {
+                        Name = m.Name,
+                        Dosage = m.Dosage,
+                        Frequency = m.Frequency,
+                        Route = m.Route,
+                        StartDate = m.StartDate,
+                        EndDate = m.EndDate,
+                        Notes = m.Notes
+                    }).ToList(),
+                    Procedures = request.Procedures?.Select(p => new ProcedureRecord
+                    {
+                        Code = p.Code,
+                        Description = p.Description,
+                        PerformedAt = p.PerformedAt,
+                        ToothNumber = p.ToothNumber,
+                        Status = p.Status,
+                        Notes = p.Notes
+                    }).ToList(),
+                    Teeth = request.Teeth?.Select(t => new ToothRecord
+                    {
+                        ToothNumber = t.ToothNumber,
+                        Condition = t.Condition,
+                        TreatmentPlanned = t.TreatmentPlanned,
+                        TreatmentCompleted = t.TreatmentCompleted,
+                        Surfaces = t.Surfaces,
+                        Notes = t.Notes,
+                        LastUpdated = DateTime.Now
+                    }).ToList(),
+                    XRays = request.XRays?.Select(x => new XRayRecord
+                    {
+                        Type = x.Type,
+                        Findings = x.Findings,
+                        ImagePath = x.ImagePath,
+                        TakenAt = x.TakenAt,
+                        TakenBy = x.TakenBy,
+                        Notes = x.Notes
+                    }).ToList()
                 };
 
                 _context.EHRs.Add(ehr);
                 await _context.SaveChangesAsync();
 
+                // Log the creation
+                await _changeLogService.LogCreationAsync(ehr, doctorId, doctorName, request.AppointmentId);
+
                 // Load related entities for response
                 var createdEHR = await _context.EHRs
                     .Include(e => e.Patient)
                     .Include(e => e.Appointment)
+                    .Include(e => e.Medications)
+                    .Include(e => e.Procedures)
+                    .Include(e => e.Teeth)
+                    .Include(e => e.XRays)
+                    .Include(e => e.ChangeLogs)
                     .FirstOrDefaultAsync(e => e.EHR_ID == ehr.EHR_ID);
 
                 var response = _mappingService.MapToResponse(createdEHR);
                 return CreatedAtAction(nameof(GetEHRById), new { EHR_ID = ehr.EHR_ID }, response);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(new { error = ex.Message });
             }
             catch (Exception ex)
             {
@@ -174,12 +301,30 @@ namespace clinical.APIs.Controllers
 
             try
             {
-                // Check if EHR exists
-                var existingEHR = await _context.EHRs.FindAsync(EHR_ID);
+                // Get doctor info from token
+                var (doctorId, doctorName) = GetDoctorFromToken();
+
+                // Check if EHR exists - create a copy of the old state for change tracking
+                var existingEHR = await _context.EHRs.AsNoTracking().FirstOrDefaultAsync(e => e.EHR_ID == EHR_ID);
                 if (existingEHR == null)
                 {
                     return NotFound(new { error = "EHR not found.", ehr_id = EHR_ID });
                 }
+
+                // Create a deep copy for change tracking
+                var oldEHR = new EHR
+                {
+                    EHR_ID = existingEHR.EHR_ID,
+                    Allergies = existingEHR.Allergies,
+                    MedicalAlerts = existingEHR.MedicalAlerts,
+                    Diagnosis = existingEHR.Diagnosis,
+                    XRayFindings = existingEHR.XRayFindings,
+                    PeriodontalStatus = existingEHR.PeriodontalStatus,
+                    ClinicalNotes = existingEHR.ClinicalNotes,
+                    Recommendations = existingEHR.Recommendations,
+                    History = existingEHR.History,
+                    Treatments = existingEHR.Treatments
+                };
 
                 // Verify that the patient exists if Patient_ID is being changed
                 if (existingEHR.Patient_ID != request.Patient_ID)
@@ -201,26 +346,138 @@ namespace clinical.APIs.Controllers
                     }
                 }
 
-                // Update EHR properties
-                existingEHR.Medications = request.Medications;
-                existingEHR.Allergies = request.Allergies;
-                existingEHR.History = request.History;
-                existingEHR.Treatments = request.Treatments;
-                existingEHR.Patient_ID = request.Patient_ID;
-                existingEHR.AppointmentId = request.AppointmentId;
-                existingEHR.Last_Updated = DateTime.Now;
+                // Now get the tracked entity for update
+                var trackedEHR = await _context.EHRs
+                    .Include(e => e.Medications)
+                    .Include(e => e.Procedures)
+                    .Include(e => e.Teeth)
+                    .Include(e => e.XRays)
+                    .Include(e => e.ChangeLogs)
+                    .FirstOrDefaultAsync(e => e.EHR_ID == EHR_ID);
 
-                _context.EHRs.Update(existingEHR);
+                // Create new EHR object with updated values
+                var newEHR = new EHR
+                {
+                    EHR_ID = EHR_ID,
+                    Allergies = request.Allergies,
+                    MedicalAlerts = request.MedicalAlerts,
+                    Diagnosis = request.Diagnosis,
+                    XRayFindings = request.XRayFindings,
+                    PeriodontalStatus = request.PeriodontalStatus,
+                    ClinicalNotes = request.ClinicalNotes,
+                    Recommendations = request.Recommendations,
+                    History = request.History,
+                    Treatments = request.Treatments
+                };
+
+                // Log changes before updating
+                await _changeLogService.LogChangesAsync(oldEHR, newEHR, doctorId, doctorName, request.AppointmentId);
+
+                // Update EHR properties
+                trackedEHR.Allergies = request.Allergies;
+                trackedEHR.MedicalAlerts = request.MedicalAlerts;
+                trackedEHR.Diagnosis = request.Diagnosis;
+                trackedEHR.XRayFindings = request.XRayFindings;
+                trackedEHR.PeriodontalStatus = request.PeriodontalStatus;
+                trackedEHR.ClinicalNotes = request.ClinicalNotes;
+                trackedEHR.Recommendations = request.Recommendations;
+                trackedEHR.History = request.History;
+                trackedEHR.Treatments = request.Treatments;
+                trackedEHR.Patient_ID = request.Patient_ID;
+                trackedEHR.AppointmentId = request.AppointmentId;
+                trackedEHR.UpdatedAt = DateTime.Now;
+                trackedEHR.UpdatedBy = doctorName;
+
+             
+                // Remove existing records
+                if (trackedEHR.Medications != null)
+                    _context.MedicationRecords.RemoveRange(trackedEHR.Medications);
+                if (trackedEHR.Procedures != null)
+                    _context.ProcedureRecords.RemoveRange(trackedEHR.Procedures);
+                if (trackedEHR.Teeth != null)
+                    _context.ToothRecords.RemoveRange(trackedEHR.Teeth);
+                if (trackedEHR.XRays != null)
+                    _context.XRayRecords.RemoveRange(trackedEHR.XRays);
+
+                // Add new records
+                if (request.Medications != null)
+                {
+                    trackedEHR.Medications = request.Medications.Select(m => new MedicationRecord
+                    {
+                        EHR_ID = EHR_ID,
+                        Name = m.Name,
+                        Dosage = m.Dosage,
+                        Frequency = m.Frequency,
+                        Route = m.Route,
+                        StartDate = m.StartDate,
+                        EndDate = m.EndDate,
+                        Notes = m.Notes
+                    }).ToList();
+                }
+
+                if (request.Procedures != null)
+                {
+                    trackedEHR.Procedures = request.Procedures.Select(p => new ProcedureRecord
+                    {
+                        EHR_ID = EHR_ID,
+                        Code = p.Code,
+                        Description = p.Description,
+                        PerformedAt = p.PerformedAt,
+                        ToothNumber = p.ToothNumber,
+                        Status = p.Status,
+                        Notes = p.Notes
+                    }).ToList();
+                }
+
+                if (request.Teeth != null)
+                {
+                    trackedEHR.Teeth = request.Teeth.Select(t => new ToothRecord
+                    {
+                        EHR_ID = EHR_ID,
+                        ToothNumber = t.ToothNumber,
+                        Condition = t.Condition,
+                        TreatmentPlanned = t.TreatmentPlanned,
+                        TreatmentCompleted = t.TreatmentCompleted,
+                        Surfaces = t.Surfaces,
+                        Notes = t.Notes,
+                        LastUpdated = DateTime.Now
+                    }).ToList();
+                }
+
+                if (request.XRays != null)
+                {
+                    trackedEHR.XRays = request.XRays.Select(x => new XRayRecord
+                    {
+                        EHR_ID = EHR_ID,
+                        Type = x.Type,
+                        Findings = x.Findings,
+                        ImagePath = x.ImagePath,
+                        TakenAt = x.TakenAt,
+                        TakenBy = x.TakenBy,
+                        Notes = x.Notes
+                    }).ToList();
+                }
+
+                _context.EHRs.Update(trackedEHR);
                 await _context.SaveChangesAsync();
 
                 // Load related entities for response
                 var updatedEHR = await _context.EHRs
                     .Include(e => e.Patient)
                     .Include(e => e.Appointment)
+                    .Include(e => e.Medications)
+                    .Include(e => e.Procedures)
+                    .Include(e => e.Teeth)
+                    .Include(e => e.XRays)
+                    .Include(e => e.ChangeLogs)
                     .FirstOrDefaultAsync(e => e.EHR_ID == EHR_ID);
 
                 var response = _mappingService.MapToResponse(updatedEHR);
                 return Ok(new { message = "EHR updated successfully.", ehr = response });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(new { error = ex.Message });
             }
             catch (DbUpdateConcurrencyException)
             {

@@ -57,6 +57,9 @@ builder.Services.AddScoped<IPatientMappingService, PatientMappingService>();
 builder.Services.AddScoped<IDoctorMappingService, DoctorMappingService>();
 builder.Services.AddScoped<INurseMappingService, NurseMappingService>();
 
+// Add EHR Change Log Service
+builder.Services.AddScoped<IEHRChangeLogService, EHRChangeLogService>();
+
 // Configure JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 var secretKey = jwtSettings["SecretKey"];
