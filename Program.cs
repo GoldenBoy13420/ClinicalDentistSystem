@@ -81,6 +81,7 @@ builder.Services.AddAuthentication(options =>
         ValidAudience = jwtSettings["Audience"],
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey))
     };
+    options.MapInboundClaims = false;
 });
 
 builder.Services.AddAuthorization(options =>
